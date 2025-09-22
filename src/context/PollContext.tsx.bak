@@ -1,0 +1,194 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { io, Socket } from 'socket.io-client';
+
+interface Student {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface PollResponse {
+  studentId: string;
+  answer: string;
+  timestamp: Date;
+}
+
+interface Poll {
+  id: string;
+  question: string;
+  options: string[];
+  status: 'active' | 'ended';
+  responses: PollResponse[];
+  createdAt: Date;
+}
+
+interface PollContextType {
+  poll: Poll | null;
+  students: Student[];
+  createPoll: (question: string, options: string[]) => void;
+  endPoll: () => void;
+  joinAsStudent: (name: string) => void;
+  submitResponse: (studentId: string, answer: string) => void;
+  removeStudent: (studentId: string) => void;
+}
+
+const PollContext = createContext<PollContextType | undefined>(undefined);
+
+export const usePoll = () => {
+  const context = useContext(PollContext);
+  if (!context) {
+    throw new Error('usePoll must be used within a PollProvider');
+  }
+  return context;
+};
+
+export const PollProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [poll, setPoll] = useState<Poll | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+
+  useEffect(() => {
+    // Initialize socket connection
+    const newSocket = io('http://localhost:3000');
+    setSocket(newSocket);
+
+    // Socket event listeners
+    newSocket.on('poll_created', (newPoll: Poll) => {
+      setPoll(newPoll);
+    });
+
+    newSocket.on('poll_ended', (endedPoll: Poll) => {
+      setPoll(endedPoll);
+    });
+
+    newSocket.on('response_received', (updatedPoll: Poll) => {
+      setPoll(updatedPoll);
+    });
+
+    newSocket.on('students_updated', (updatedStudents: Student[]) => {
+      setStudents(updatedStudents);
+    });
+
+    newSocket.on('student_removed', () => {
+      // Redirect to home if current student is removed
+      window.location.href = '/';
+    });
+
+    return () => {
+      newSocket.close();
+    };
+  }, []);
+
+  const createPoll = (question: string, options: string[]) => {
+    if (socket) {
+      socket.emit('create_poll', { question, options });
+    }
+  };
+
+  const endPoll = () => {
+    if (socket) {
+      socket.emit('end_poll');
+    }
+  };
+
+  const joinAsStudent = (name: string) => {
+    if (socket) {
+      socket.emit('student_join', { name });
+    }
+  };
+
+  const submitResponse = (studentId: string, answer: string) => {
+    if (socket) {
+      socket.emit('submit_response', { studentId, answer });
+    }
+  };
+
+  const removeStudent = (studentId: string) => {
+    if (socket) {
+      socket.emit('remove_student', { studentId });
+    }
+  };
+
+  return (
+    <PollContext.Provider
+      value={{
+        poll,
+        students,
+        createPoll,
+        endPoll,
+        joinAsStudent,
+        submitResponse,
+        removeStudent
+      }}
+    >
+      {children}
+    </PollContext.Provider>
+  );
+};
+        setPoll(prev => prev ? { ...prev, status: 'ended' } : null);
+      }, 60000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [poll]);
+
+  const createPoll = (question: string, options: string[]) => {
+    const newPoll: Poll = {
+      id: Date.now().toString(),
+      question,
+      options,
+      status: 'active',
+      responses: [],
+      createdAt: new Date()
+    };
+    setPoll(newPoll);
+  };
+
+  const endPoll = () => {
+    setPoll(prev => prev ? { ...prev, status: 'ended' } : null);
+  };
+
+  const joinAsStudent = (name: string) => {
+    const existingStudent = students.find(s => s.name === name);
+    if (existingStudent) {
+      setStudents(prev => prev.map(s => 
+        s.name === name ? { ...s, isActive: true } : s
+      ));
+    } else {
+      const newStudent: Student = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        name,
+        isActive: true
+      };
+      setStudents(prev => [...prev, newStudent]);
+    }
+  };
+
+  const submitResponse = (studentId: string, answer: string) => {
+    if (poll && poll.status === 'active') {
+      const newResponse: PollResponse = {
+        studentId,
+        answer,
+        timestamp: new Date()
+      };
+
+      setPoll(prev => prev ? {
+        ...prev,
+        responses: [...prev.responses.filter(r => r.studentId !== studentId), newResponse]
+      } : null);
+    }
+  };
+
+  return (
+    <PollContext.Provider value={{
+      poll,
+      students,
+      createPoll,
+      endPoll,
+      joinAsStudent,
+      submitResponse
+    }}>
+      {children}
+    </PollContext.Provider>
+  );
+};
