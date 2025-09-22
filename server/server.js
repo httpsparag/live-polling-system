@@ -172,8 +172,9 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`CORS origin: ${process.env.FRONTEND_URL || "http://localhost:5173"}`);
+  console.log('Server started successfully');
 });
