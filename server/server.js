@@ -31,6 +31,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Add a health check route
+app.get('/', (req, res) => {
+  res.json({ status: 'Server is running!' });
+});
+
 // Store active polls and students in memory
 let activePoll = null;
 const activeStudents = new Map(); // Maps socket ID to student info
@@ -168,6 +173,7 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`CORS origin: ${process.env.FRONTEND_URL || "http://localhost:5173"}`);
 });
