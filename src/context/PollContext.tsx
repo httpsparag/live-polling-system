@@ -57,10 +57,22 @@ export const PollProvider: React.FC<{ children: React.ReactNode }> = ({ children
       withCredentials: true,
       forceNew: true,
       timeout: 10000,
+      reconnection: true,
+      reconnectionAttempts: 5
     });
+    
+    newSocket.on('connect', () => {
+      console.log('Connected to server:', newSocket.id);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Connection error:', error);
+    });
+
     setSocket(newSocket);
 
     newSocket.on('poll_created', (newPoll: Poll) => {
+      console.log('Poll received:', newPoll);
       setPoll(newPoll);
     });
 
