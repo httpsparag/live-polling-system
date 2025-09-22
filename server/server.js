@@ -5,22 +5,25 @@ import cors from 'cors';
 
 const app = express();
 const httpServer = createServer(app);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err.stack);
+  res.status(500).json({ error: 'Something broke!' });
+});
+
+// Setup Socket.IO with error handling
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: [process.env.FRONTEND_URL || "http://localhost:5173"],
     methods: ["GET", "POST"],
     credentials: true,
     allowedHeaders: ["my-custom-header"],
   },
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   pingTimeout: 60000,
   pingInterval: 25000,
-  cookie: {
-    name: "io",
-    httpOnly: true,
-    sameSite: "none",
-    secure: true
-  }
+  path: '/socket.io'
 });
 
 app.use(cors({
@@ -31,9 +34,21 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Add a health check route
+// Add health check routes
 app.get('/', (req, res) => {
-  res.json({ status: 'Server is running!' });
+  res.json({
+    status: 'Server is running!',
+    time: new Date().toISOString(),
+    env: {
+      node_env: process.env.NODE_ENV,
+      frontend_url: process.env.FRONTEND_URL || 'not set',
+      port: process.env.PORT || '8080'
+    }
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
 });
 
 // Store active polls and students in memory
@@ -173,8 +188,29 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 8080;
-httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`CORS origin: ${process.env.FRONTEND_URL || "http://localhost:5173"}`);
-  console.log('Server started successfully');
-});
+
+// Handle server startup
+const startServer = async () => {
+  try {
+    await new Promise((resolve, reject) => {
+      httpServer.listen(PORT, '0.0.0.0', (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+
+    console.log(`Server running on port ${PORT}`);
+    console.log(`CORS origin: ${process.env.FRONTEND_URL || "http://localhost:5173"}`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log('Server started successfully');
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
