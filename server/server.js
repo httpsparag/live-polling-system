@@ -7,13 +7,21 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: [process.env.FRONTEND_URL || "http://localhost:5173", "https://live-polling-system-omega.vercel.app"],
     methods: ["GET", "POST"],
-    credentials: true
-  }
+    credentials: true,
+    allowedHeaders: ["Content-Type"]
+  },
+  transports: ['websocket'],
+  pingTimeout: 60000,
 });
 
-app.use(cors());
+app.use(cors({
+  origin: [process.env.FRONTEND_URL || "http://localhost:5173", "https://live-polling-system-omega.vercel.app"],
+  credentials: true,
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+}));
 app.use(express.json());
 
 // Store active polls and students in memory
@@ -22,6 +30,14 @@ const activeStudents = new Map(); // Maps socket ID to student info
 
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
+  
+  socket.on('disconnect', (reason) => {
+    console.log('User disconnected:', socket.id, 'Reason:', reason);
+  });
+
+  socket.on('error', (error) => {
+    console.error('Socket error:', error);
+  });
 
   // Teacher creates a new poll
   socket.on('create_poll', ({ question, options }) => {

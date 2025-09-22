@@ -52,7 +52,12 @@ export const PollProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-    const newSocket = io(backendUrl);
+    const newSocket = io(backendUrl, {
+      transports: ['websocket'],
+      withCredentials: true,
+      forceNew: true,
+      timeout: 10000,
+    });
     setSocket(newSocket);
 
     newSocket.on('poll_created', (newPoll: Poll) => {
